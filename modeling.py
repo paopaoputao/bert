@@ -27,7 +27,7 @@ import numpy as np
 import six
 import tensorflow as tf
 
-
+# BERT模型配置管理工具
 class BertConfig(object):
   """Configuration for `BertModel`."""
 
@@ -154,6 +154,7 @@ class BertModel(object):
         is invalid.
     """
     config = copy.deepcopy(config)
+    # 非训练模式下，dropout比例要设为0.0，即不要dropout
     if not is_training:
       config.hidden_dropout_prob = 0.0
       config.attention_probs_dropout_prob = 0.0
@@ -162,14 +163,17 @@ class BertModel(object):
     batch_size = input_shape[0]
     seq_length = input_shape[1]
 
+    # 如果没有input_mask，则生成全1的矩阵
     if input_mask is None:
       input_mask = tf.ones(shape=[batch_size, seq_length], dtype=tf.int32)
 
+    # 如果没有token_type_ids，则生成全0的矩阵
     if token_type_ids is None:
       token_type_ids = tf.zeros(shape=[batch_size, seq_length], dtype=tf.int32)
 
     with tf.variable_scope(scope, default_name="bert"):
       with tf.variable_scope("embeddings"):
+          # 符号编码，用embedding_lookup实现
         # Perform embedding lookup on the word ids.
         (self.embedding_output, self.embedding_table) = embedding_lookup(
             input_ids=input_ids,
@@ -179,6 +183,7 @@ class BertModel(object):
             word_embedding_name="word_embeddings",
             use_one_hot_embeddings=use_one_hot_embeddings)
 
+        # 增加位置编码和符号类型编码
         # Add positional embeddings and token type embeddings, then layer
         # normalize and perform dropout.
         self.embedding_output = embedding_postprocessor(
@@ -200,6 +205,7 @@ class BertModel(object):
         attention_mask = create_attention_mask_from_input_mask(
             input_ids, input_mask)
 
+        # 多层（自注意力+前馈网络）组成的transformer模型
         # Run the stacked transformer.
         # `sequence_output` shape = [batch_size, seq_length, hidden_size].
         self.all_encoder_layers = transformer_model(
@@ -215,6 +221,7 @@ class BertModel(object):
             initializer_range=config.initializer_range,
             do_return_all_layers=True)
 
+        # 最后一层输出作为 sequence_output
       self.sequence_output = self.all_encoder_layers[-1]
       # The "pooler" converts the encoded sequence tensor of shape
       # [batch_size, seq_length, hidden_size] to a tensor of shape
@@ -224,6 +231,8 @@ class BertModel(object):
       with tf.variable_scope("pooler"):
         # We "pool" the model by simply taking the hidden state corresponding
         # to the first token. We assume that this has been pre-trained
+
+        # 最后一层的第一个输出后面加一层全连接网络作为分类标记
         first_token_tensor = tf.squeeze(self.sequence_output[:, 0:1, :], axis=1)
         self.pooled_output = tf.layers.dense(
             first_token_tensor,
@@ -260,7 +269,7 @@ class BertModel(object):
   def get_embedding_table(self):
     return self.embedding_table
 
-
+# 高斯误差线性单元，一种新的激活函数，看上去计算还挺复杂的
 def gelu(x):
   """Gaussian Error Linear Unit.
 
@@ -276,7 +285,7 @@ def gelu(x):
       (np.sqrt(2 / np.pi) * (x + 0.044715 * tf.pow(x, 3)))))
   return x * cdf
 
-
+# 激活函数名到真正激活函数的映射
 def get_activation(activation_string):
   """Maps a string to a Python function, e.g., "relu" => `tf.nn.relu`.
 
@@ -340,7 +349,7 @@ def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
 
   return (assignment_map, initialized_variable_names)
 
-
+# 随机失活层
 def dropout(input_tensor, dropout_prob):
   """Perform dropout.
 
@@ -358,7 +367,7 @@ def dropout(input_tensor, dropout_prob):
   output = tf.nn.dropout(input_tensor, 1.0 - dropout_prob)
   return output
 
-
+# 层归一化
 def layer_norm(input_tensor, name=None):
   """Run layer normalization on the last dimension of the tensor."""
   return tf.contrib.layers.layer_norm(
@@ -376,7 +385,7 @@ def create_initializer(initializer_range=0.02):
   """Creates a `truncated_normal_initializer` with the given range."""
   return tf.truncated_normal_initializer(stddev=initializer_range)
 
-
+# 符号编码模块，把input_ids变成【序列长度，向量尺寸】的矩阵
 def embedding_lookup(input_ids,
                      vocab_size,
                      embedding_size=128,
@@ -424,7 +433,7 @@ def embedding_lookup(input_ids,
                       input_shape[0:-1] + [input_shape[-1] * embedding_size])
   return (output, embedding_table)
 
-
+# 输入张量再加位置编码和符号类型编码，最后还会加层归一化和随机失活
 def embedding_postprocessor(input_tensor,
                             use_token_type=False,
                             token_type_ids=None,
@@ -662,6 +671,8 @@ def attention_layer(from_tensor,
   from_tensor_2d = reshape_to_matrix(from_tensor)
   to_tensor_2d = reshape_to_matrix(to_tensor)
 
+  # 用源序列计算Q，用目标序列计算K和V。BERT里面是同一个
+
   # `query_layer` = [B*F, N*H]
   query_layer = tf.layers.dense(
       from_tensor_2d,
@@ -686,6 +697,7 @@ def attention_layer(from_tensor,
       name="value",
       kernel_initializer=create_initializer(initializer_range))
 
+  # 转置，为计算做准备
   # `query_layer` = [B, N, F, H]
   query_layer = transpose_for_scores(query_layer, batch_size,
                                      num_attention_heads, from_seq_length,
@@ -698,7 +710,9 @@ def attention_layer(from_tensor,
   # Take the dot product between "query" and "key" to get the raw
   # attention scores.
   # `attention_scores` = [B, N, F, T]
+  # Q * K
   attention_scores = tf.matmul(query_layer, key_layer, transpose_b=True)
+  # Q * K / sqrt(v.size)
   attention_scores = tf.multiply(attention_scores,
                                  1.0 / math.sqrt(float(size_per_head)))
 
@@ -706,6 +720,7 @@ def attention_layer(from_tensor,
     # `attention_mask` = [B, 1, F, T]
     attention_mask = tf.expand_dims(attention_mask, axis=[1])
 
+    # 减掉很大的值，使掩码掉的值经过softmax的概率值为零
     # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
     # masked positions, this operation will create a tensor which is 0.0 for
     # positions we want to attend and -10000.0 for masked positions.
@@ -829,6 +844,7 @@ def transformer_model(input_tensor,
 
       with tf.variable_scope("attention"):
         attention_heads = []
+        # 自注意力层
         with tf.variable_scope("self"):
           attention_head = attention_layer(
               from_tensor=layer_input,
@@ -852,6 +868,7 @@ def transformer_model(input_tensor,
           # them to the self-attention head before the projection.
           attention_output = tf.concat(attention_heads, axis=-1)
 
+        # 注意力模块最终的维度统一层
         # Run a linear projection of `hidden_size` then add a residual
         # with `layer_input`.
         with tf.variable_scope("output"):
@@ -862,6 +879,7 @@ def transformer_model(input_tensor,
           attention_output = dropout(attention_output, hidden_dropout_prob)
           attention_output = layer_norm(attention_output + layer_input)
 
+      # 前馈网络第1部分
       # The activation is only applied to the "intermediate" hidden layer.
       with tf.variable_scope("intermediate"):
         intermediate_output = tf.layers.dense(
@@ -869,7 +887,7 @@ def transformer_model(input_tensor,
             intermediate_size,
             activation=intermediate_act_fn,
             kernel_initializer=create_initializer(initializer_range))
-
+      # 前馈网络第2部分
       # Down-project back to `hidden_size` then add the residual.
       with tf.variable_scope("output"):
         layer_output = tf.layers.dense(
@@ -984,3 +1002,48 @@ def assert_rank(tensor, expected_rank, name=None):
         "For the tensor `%s` in scope `%s`, the actual rank "
         "`%d` (shape = %s) is not equal to the expected rank `%s`" %
         (name, scope_name, actual_rank, str(tensor.shape), str(expected_rank)))
+
+
+if __name__ == '__main__':
+
+    config = BertConfig(
+        vocab_size=99,
+        hidden_size=4,
+        num_hidden_layers=3,
+        num_attention_heads=2,
+        intermediate_size=16,
+        hidden_act='gelu',
+        hidden_dropout_prob=0.1,
+        attention_probs_dropout_prob=0.1,
+        max_position_embeddings=512,
+        type_vocab_size=16,
+        initializer_range=0.02)
+
+    input_value = [[1, 1, 1, 1, ]]
+
+    input_ids = tf.placeholder(dtype=tf.int32, shape=[len(input_value), None])
+
+    model = BertModel(config, input_ids=input_ids, is_training=True)
+
+    embedding_output = model.get_embedding_output()
+    sequence_output = model.get_sequence_output()
+    pooled_output = model.get_pooled_output()
+    all_encoder_layers = model.get_all_encoder_layers()
+
+    with tf.Session() as sess:
+        init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        sess.run(init_op)
+        input_ids_, embedding_output_, sequence_output_, pooled_output_, all_encoder_layers_ = sess.run([
+            input_ids,
+            embedding_output,
+            sequence_output,
+            pooled_output,
+            all_encoder_layers
+        ], feed_dict={ input_ids: input_value})
+
+        print('input_ids_: {}'.format(input_ids_.shape))
+        print('embedding_output_:', embedding_output_.shape)
+        print('sequence_output_:', sequence_output_.shape)
+        print('pooled_output_:', pooled_output_.shape, pooled_output_.tolist())
+        for i, l in enumerate(all_encoder_layers_):
+            print('all_encoder_layers[{}]: {} {}'.format(i, l.shape, l.tolist()))
