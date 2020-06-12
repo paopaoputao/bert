@@ -397,3 +397,8 @@ def _is_punctuation(char):
   if cat.startswith("P"):
     return True
   return False
+
+if __name__ == '__main__':
+  text = 'iing am playedinges.'
+  ft = FullTokenizer('/data/bert/chinese_L-12_H-768_A-12/vocab.txt', False)
+  print(ft.tokenize(text))

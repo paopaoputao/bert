@@ -70,11 +70,11 @@ class TrainingInstance(object):
 
   def __init__(self, tokens, segment_ids, masked_lm_positions, masked_lm_labels,
                is_random_next):
-    self.tokens = tokens
-    self.segment_ids = segment_ids
-    self.is_random_next = is_random_next
-    self.masked_lm_positions = masked_lm_positions
-    self.masked_lm_labels = masked_lm_labels
+    self.tokens = tokens  # 一个符号，广义的“词”，如：apple, play, ###ing, ...
+    self.segment_ids = segment_ids  # 段序号
+    self.is_random_next = is_random_next  # 是不是随机生成的“后一句”
+    self.masked_lm_positions = masked_lm_positions  # MASK掉的符号的序号
+    self.masked_lm_labels = masked_lm_labels  # MASK掉的符号内容
 
   def __str__(self):
     s = ""

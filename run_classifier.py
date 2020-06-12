@@ -599,10 +599,12 @@ def create_model(bert_config, is_training, input_ids, input_mask, segment_ids,
       "output_bias", [num_labels], initializer=tf.zeros_initializer())
 
   with tf.variable_scope("loss"):
+    # 构建训练模型，给BERT的标签符号向量后面加上一层全连接层，加0.1的随机失活(keep_prob=0.9)
     if is_training:
       # I.e., 0.1 dropout
       output_layer = tf.nn.dropout(output_layer, keep_prob=0.9)
 
+    # 用额外的权重矩阵和偏移层计算输出logits
     logits = tf.matmul(output_layer, output_weights, transpose_b=True)
     logits = tf.nn.bias_add(logits, output_bias)
     probabilities = tf.nn.softmax(logits, axis=-1)
@@ -782,10 +784,10 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
 class LabelProcessor(DataProcessor):
     """Processor for the News data set (GLUE version)."""
     def __init__(self):
-        self.labels = []
-        with open('labeled_text/labels.txt') as in_file:
-           for i in in_file:
-               self.labels.append(i.strip())
+        self.labels = ['Y', 'N']
+        #with open('labeled_text/labels.txt') as in_file:
+        #   for i in in_file:
+        #       self.labels.append(i.strip())
     def get_train_examples(self, data_dir):
         self.data_dir = data_dir
         return self._create_examples(

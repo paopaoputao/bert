@@ -1,0 +1,35 @@
+## BERT
+
+# 创建所需的python环境，所需tf版本最低要1.11，也别用太高的版本，反正tf2绝对跑不起来。可根据情况选则是否需要GPU支持
+conda create -y -n _bert  tensorflow-gpu==1.11  # with GPU support
+conda create -y -n _bert  tensorflow==1.11   # without GPU support
+
+如果需要在jupyter中注册内核得话再多装一个ipykernel包
+
+## 下载代码
+git clone https://github.com/google-research/bert
+带注释版本: https://github.com/paopaoputao/bert
+
+包含中文的模型地址：
+https://storage.googleapis.com/bert_models/2018_11_23/multi_cased_L-12_H-768_A-12.zip
+
+## 代码备注
+
+modeling.py BERT模型，BertModel是核心类
+
+tokenization.py 文本切分，先按空白切词，再切词跟词缀，没有考虑中文分词
+    对外服务的核心类是FullTokenizer，和新方法是tokenize(text)
+    先用BasicTokenizer.tokenize(text)按空白切分
+    然后用WordpieceTokenizer.tokenize(text)切成多个词+词缀+词根
+
+create_pretraining_data.py 纯文本文章转换成待训练数据。做切分，转id，MASK，拼凑“上下句”训练样本，等等
+run_pretraining.py 预训练语言模型，可做：训练，评估，预测。都有TPU相关API实现
+
+extract_features.py 输出模型每一层的中间向量
+
+optimization.py 加入学习率优化的改良版Adam优化器，由create_optimizer返回
+
+run_classifier.py 输入是每一行都是"label \t text"的文件，在BERT的pooled_out后面加上全连接层做分类
+run_classifier_with_tfhub.py 也是做分类，从tfhub载入训练好的模型
+
+run_squad.py 问答系统的测试样例，挺复杂，没运行过
