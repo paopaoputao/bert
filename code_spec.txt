@@ -1,8 +1,8 @@
 ## BERT
 
 # 创建所需的python环境，所需tf版本最低要1.11，也别用太高的版本，反正tf2绝对跑不起来。可根据情况选则是否需要GPU支持
-conda create -y -n _bert  tensorflow-gpu==1.11  # with GPU support
-conda create -y -n _bert  tensorflow==1.11   # without GPU support
+conda create -y -n _bert  tensorflow-gpu==1.15  # with GPU support
+conda create -y -n _bert  tensorflow==1.15   # without GPU support
 
 如果需要在jupyter中注册内核得话再多装一个ipykernel包
 
