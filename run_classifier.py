@@ -781,13 +781,50 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
 
 
 def main(_):
+  """
+      --vocab_file=chinese_L-12_H-768_A-12/vocab.txt
+      --bert_config_file=chinese_L-12_H-768_A-12/bert_config.json
+      --init_checkpoint=chinese_L-12_H-768_A-12/bert_model.ckpt
+
+      --task_name=weibosenti
+      --data_dir=weibo_senti_100k-00/
+      --output_dir=weibo_senti_100k-00-taskout/
+
+      --do_train=True
+      --do_eval=True
+      --do_predict=True
+  """
+
   tf.logging.set_verbosity(tf.logging.INFO)
+
+  class WeiboSentiProcessor(DataProcessor):
+    def get_train_examples(self, data_dir):
+      return self._create_examples(self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+
+    def get_dev_examples(self, data_dir):
+      return self._create_examples(self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+
+    def get_test_examples(self, data_dir):
+      return self._create_examples(self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
+
+    def get_labels(self):
+      return ["0", "1"]
+
+    def _create_examples(self, lines, set_type):
+      examples = []
+      for (line_no, line) in enumerate(lines):
+        guid = "%s-%s" % (set_type, line_no)
+        text_a = tokenization.convert_to_unicode(line[1])
+        label = tokenization.convert_to_unicode(line[0])
+        examples.append(InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+      return examples
 
   processors = {
       "cola": ColaProcessor,
       "mnli": MnliProcessor,
       "mrpc": MrpcProcessor,
       "xnli": XnliProcessor,
+      "weibosenti": WeiboSentiProcessor,
   }
 
   tokenization.validate_case_matches_checkpoint(FLAGS.do_lower_case,
