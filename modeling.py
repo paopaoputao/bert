@@ -109,7 +109,6 @@ class BertModel(object):
 
   Example usage:
 
-  ```python
   # Already been converted into WordPiece token ids
   input_ids = tf.constant([[31, 51, 99], [15, 5, 0]])
   input_mask = tf.constant([[1, 1, 1], [1, 1, 0]])
@@ -125,7 +124,6 @@ class BertModel(object):
   pooled_output = model.get_pooled_output()
   logits = tf.matmul(pooled_output, label_embeddings)
   ...
-  ```
   """
 
   def __init__(self,
