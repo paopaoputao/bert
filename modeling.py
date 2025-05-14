@@ -270,6 +270,7 @@ class BertModel(object):
     return self.embedding_table
 
 # 高斯误差线性单元，一种新的激活函数，看上去计算还挺复杂的
+#
 def gelu(x):
   """Gaussian Error Linear Unit.
 
